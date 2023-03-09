@@ -1,9 +1,9 @@
 package com.liceu.forum.forum.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import java.util.Set;
+
+import java.util.List;
 
 @Entity
 public class Categories {
@@ -13,6 +13,12 @@ public class Categories {
     String title;
     String description;
     String slug;
+
+    @OneToMany(mappedBy = "category",cascade = CascadeType.REMOVE)
+    Set<Topic> topics;
+
+
+
 
     public Long getId() {
         return id;
@@ -45,4 +51,6 @@ public class Categories {
     public void setSlug(String slug) {
         this.slug = slug;
     }
+
+
 }

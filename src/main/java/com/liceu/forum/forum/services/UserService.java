@@ -1,6 +1,7 @@
 package com.liceu.forum.forum.services;
 
 import com.liceu.forum.forum.model.Password;
+import com.liceu.forum.forum.model.ProfileBody;
 import com.liceu.forum.forum.model.User;
 import com.liceu.forum.forum.repos.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,15 +13,26 @@ import java.util.*;
 public class UserService {
     @Autowired
     UserRepo userRepo;
+    @Autowired
+    Encrypter encrypter;
     public List<User> catchUserEmail(String email) {
         List<User> userList = userRepo.findByEmail(email);
         return userList;
+    }
+
+    public boolean tryEmailExistance(String email){
+        List<User> list = userRepo.findByEmail(email);
+        if (list.isEmpty()){
+            return true;
+        } else {
+            return false;
+        }
     }
     public void save(User user){
         userRepo.save(user);
     }
     public void updatePassword(User user, Password password){
-        userRepo.updatePassword(user.getEmail(),password.getNewPassword());
+        userRepo.updatePassword(user.getEmail(), encrypter.SHA256(password.getNewPassword()));
     }
     public List<String> getPermisions(String role){
         List<String> root = new ArrayList<>();
@@ -49,5 +61,11 @@ public class UserService {
         permissions.put("role", user.getRole());
 
         return permissions;
+    }
+
+    public void updateProfile(User user, ProfileBody body) {
+        user.setEmail(body.getEmail());
+        user.setName(body.getName());
+        userRepo.save(user);
     }
 }
