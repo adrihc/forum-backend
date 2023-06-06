@@ -17,6 +17,8 @@ public class TopicService {
     TopicRepo topicRepo;
     @Autowired
     CategoriesService categoriesService;
+    @Autowired
+    ReplyService replyService;
     public List<Topic> findAllTopics(Categories category){
         System.out.println(category.getId());
         List<Topic> topics = topicRepo.findTopicsByCategoriesId(category.getId());
@@ -47,5 +49,11 @@ public class TopicService {
     public Topic findTopic(String _id){
         return topicRepo.findTopicBy_id(_id);
     }
-    public void  deleteTopic(Topic topic){ topicRepo.delete(topic);}
+    public void  deleteTopic(Topic topic){
+        List<Reply> replies = replyService.findRepliesByTopicId(topic);
+        for (Reply r: replies) {
+            replyService.delete(r);
+        }
+        topicRepo.delete(topic);
+    }
 }

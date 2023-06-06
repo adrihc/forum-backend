@@ -3,6 +3,8 @@ package com.liceu.forum.forum.model;
 import com.liceu.forum.forum.repos.ReplyRepo;
 import com.liceu.forum.forum.services.ReplyService;
 import jakarta.persistence.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
@@ -26,7 +28,7 @@ public class Topic {
     int _replies;
     int views;
 
-    @OneToMany(mappedBy = "topic",cascade = CascadeType.REMOVE)
+    @OneToMany(mappedBy = "topic")
     List<Reply> replies;
 
     @ManyToOne

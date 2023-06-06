@@ -33,7 +33,7 @@ public class TopicController {
     ReplyService replyService;
 
     @GetMapping("/categories/{slug}/topics")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public List<Topic> getCategoryTopics(@PathVariable String slug) throws UnsupportedEncodingException {
         String encodedSlug = URLEncoder.encode(slug, "UTF-8").replaceAll("\\+", "%20");
         if (categoriesService.trySlug(encodedSlug)){
@@ -46,7 +46,7 @@ public class TopicController {
     }
 
     @PostMapping("/topics")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public ResponseEntity<Topic> addTopics(@RequestBody TopicBody body) throws UnsupportedEncodingException {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
@@ -59,8 +59,8 @@ public class TopicController {
     }
 
     @GetMapping("/topics/{_id}")
-    @CrossOrigin
-    public ResponseEntity<Map<String,Object>> getTopic(@PathVariable("_id")String _id){
+    @CrossOrigin("http://localhost:3000/")
+    public Map<String,Object> getTopic(@PathVariable("_id")String _id){
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
         String userString = tokenService.getUser(token);
@@ -68,19 +68,28 @@ public class TopicController {
         Topic topic = topicService.findTopic(_id);
         List<Reply> replies = replyService.findRepliesByTopicId(topic);
         Map<String, Object> map = new HashMap<>();
-        map.put("category",topic.getCategory());
+        UserResp userResp = new UserResp(user.getRole(), user.getId().toString(), user.getEmail(), user.getName());
+        userResp.setPermissions(userService.createPermissions(user));
+
+        map.put("user", userResp);
         map.put("content",topic.getContent());
-        map.put("user", topic.getUser());
         map.put("createdAt", topic.getCreatedAt());
+        map.put("updatedAt", topic.getCreatedAt());
+        map.put("__v", 0);
         map.put("replies",replies);
+        map.put("views", 0);
+        map.put("numberOfReplies", null);
         map.put("_id",topic.get_id());
         map.put("title",topic.getTitle());
-        map.put("permissions", userService.createPermissions(user));
-        return ResponseEntity.ok().body(map);
+        map.put("category", topic.getCategories());
+        map.put("id", topic.get_id());
+
+        //map.put("permissions", userService.createPermissions(user));
+        return map;
     }
 
     @PutMapping("/topics/{_id}")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public ResponseEntity<Topic> updateTopic(@PathVariable("_id")String _id, @RequestBody TopicBody body){
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
@@ -99,8 +108,8 @@ public class TopicController {
     }
 
     @DeleteMapping("/topics/{_id}")
-    @CrossOrigin
-    public ResponseEntity<Void> deleteTopic(@PathVariable("_id")String _id){
+    @CrossOrigin("http://localhost:3000/")
+    public boolean deleteTopic(@PathVariable("_id")String _id){
         Topic topic = topicService.findTopic(_id);
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
@@ -108,30 +117,35 @@ public class TopicController {
         User user = userService.catchUserEmail(userString).get(0);
         if (user.getRole().equals("admin")|| user == topic.getUser()){
             topicService.deleteTopic(topic);
-            return ResponseEntity.ok().build();
+            return true;
         }else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return false;
         }
     }
 
 
     @PostMapping("/topics/{_id}/replies")
     @CrossOrigin
-    public ResponseEntity<Topic> postReplies(@PathVariable("_id")String _id, @RequestBody ReplyBody body){
+    public ResponseEntity<Reply> postReplies(@PathVariable("_id")String _id, @RequestBody ReplyBody body){
         Topic topic = topicService.findTopic(_id);
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
         String userString = tokenService.getUser(token);
+
         User user = userService.catchUserEmail(userString).get(0);
         if (user == null){
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         replyService.createReply(user,topic, body.getContent());
-        return ResponseEntity.ok().body(topic);
+
+        List<Reply> replies = replyService.findRepliesByTopicId(topic);
+        Reply reply = replies.get(replies.size()-1);
+
+        return ResponseEntity.ok().body(reply);
     }
 
     @PutMapping("/topics/{_id}/replies/{_idReply}")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public ResponseEntity<Topic> updateReplies(@PathVariable("_id")String _id,@PathVariable("_idReply")String _idReply, @RequestBody ReplyBody body){
         Topic topic = topicService.findTopic(_id);
         Reply reply = replyService.findReplyBiId(Long.parseLong(_idReply));
@@ -151,8 +165,8 @@ public class TopicController {
     }
 
     @DeleteMapping("/topics/{_id}/replies/{_idReply}")
-    @CrossOrigin
-    public ResponseEntity<Void> updateReplies(@PathVariable("_id")String _id,@PathVariable("_idReply")String _idReply){
+    @CrossOrigin("http://localhost:3000/")
+    public boolean updateReplies(@PathVariable("_id")String _id,@PathVariable("_idReply")String _idReply){
         Reply reply = replyService.findReplyBiId(Long.parseLong(_idReply));
 
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
@@ -162,9 +176,9 @@ public class TopicController {
 
         if (user.getRole().equals("admin")|| user == reply.getUser()){
             replyService.delete(reply);
-            return ResponseEntity.ok().build();
+            return false;
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return true;
         }
     }
 }

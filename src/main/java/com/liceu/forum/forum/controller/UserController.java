@@ -9,12 +9,14 @@ import com.liceu.forum.forum.services.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +34,7 @@ public class UserController {
     }
 
     @GetMapping("/getprofile")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public Map<String, Object> selectProfile() {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
@@ -44,7 +46,7 @@ public class UserController {
             return resp;
         }
         User profileUser = userList.get(0);
-        List<String> permissions = userService.getPermisions(profileUser.getRole());
+        //List<String> permissions = userService.getPermisions(profileUser.getRole());
 
         resp.put("token", token);
         resp.put("email", profileUser.getEmail());
@@ -55,75 +57,105 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    @CrossOrigin
-    public ResponseEntity<String> createUser(@RequestBody User user) {
+    @CrossOrigin("http://localhost:3000/")
+    public Map<String, Object> createUser(@RequestBody User user, HttpServletResponse response) throws NoSuchAlgorithmException {
         List<User> userlistEmail = userService.catchUserEmail(user.getEmail());
-
+        Map<String, Object> resp = new HashMap<>();
         if (userlistEmail.isEmpty()){
             user.setPassword(encrypter.SHA256(user.getPassword()));
             userService.save(user);
-            return ResponseEntity.ok("Tu cuenta ha sido creada");
+            return resp;
         } else if(!userlistEmail.isEmpty()){
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("El email ya existe");
+            resp.put("message", "Ese email ya está en uso");
+            response.setStatus(400);
+            return resp;
         } else{
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            response.setStatus(400);
+            return resp;
         }
     }
 
 
     @PostMapping("/login")
-    @CrossOrigin
-    public ResponseEntity<Token> createUser(@RequestBody Login login) {
+    @CrossOrigin("http://localhost:3000/")
+    public Map<String, Object>  createUser(@RequestBody Login login, HttpServletResponse response) throws NoSuchAlgorithmException {
         List<User> userList = userService.catchUserEmail(login.getEmail());
+        Map<String, Object> resp = new HashMap<>();
+
         if(userList.isEmpty()){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            String message = "User does not exists";
+            resp.put("message", message);
+            response.setStatus(400);
+            return resp;
         }
         Token token = tokenService.newToken(login);
         User user = userList.get(0);
         if (!user.getPassword().equals(encrypter.SHA256(login.getPassword()))){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            String message = "Wrong password";
+            resp.put("message", message);
+            response.setStatus(400);
+            return resp;
         }
-        return ResponseEntity.ok().body(token);
+
+        Map<String, Object> permissions = userService.createPermissions(user);
+        UserResp userResp = new UserResp(user.getRole(),user.getId().toString(),user.getEmail(),user.getName());
+        userResp.setPermissions(permissions);
+        resp.put("token", token.getToken());
+        resp.put("user",userResp);
+        return resp;
     }
 
     @PutMapping("/profile/password")
-    @CrossOrigin
-    public ResponseEntity<String> changePassword(@RequestBody Password password) {
-        System.out.println(password.getNewPassword()+password.getCurrentPassword());
+    @CrossOrigin("http://localhost:3000/")
+    public Map<String, Object> changePassword(@RequestBody Password password, HttpServletResponse response) throws NoSuchAlgorithmException {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
         User user = tokenService.getUserObject(token);
         String encodedPassword = encrypter.SHA256(password.getCurrentPassword());
+        Map <String, Object> resp = new HashMap<>();
         if (!encodedPassword.equals(user.getPassword())){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            response.setStatus(400);
+            resp.put("message", "No se ha podido actualizar");
+            return resp;
         }
         userService.updatePassword(user,password);
-        return ResponseEntity.ok().body("Tu contraseña se ha actualizado");
+        String message = "Tu contraseña se ha actualizado";
+        resp.put("message", message);
+        return resp;
     }
 
     @PutMapping("/profile")
-    @CrossOrigin
-    public ResponseEntity<Token> changeProfile(@RequestBody ProfileBody body) {
+    @CrossOrigin("http://localhost:3000/")
+    public Map<String, Object> changeProfile(@RequestBody ProfileBody body, HttpServletResponse response) {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
         User user = tokenService.getUserObject(token);
+        UserResp userResp = new UserResp(user.getRole(), user.getId().toString(), user.getEmail(), user.getName());
+        userResp.setPermissions(userService.createPermissions(user));
+        Map<String, Object> resp = new HashMap<>();
 
+        resp.put("user",userResp);
         if (body.getEmail().equals(user.getEmail())){
             userService.updateProfile(user, body);
             Login login = new Login();
             login.setEmail(body.getEmail());
             login.setPassword(user.getPassword());
             Token newToken = tokenService.newToken(login);
-            return ResponseEntity.ok().body(newToken);
+            resp.put("token", newToken.getToken());
+            resp.put("message", "Utiliza un email diferente");
+            return resp;
         } else if(!userService.tryEmailExistance(body.getEmail())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            resp.put("message", "Ese email ya existe");
+            response.setStatus(400);
+            return resp;
         } else {
             userService.updateProfile(user, body);
             Login login = new Login();
             login.setEmail(body.getEmail());
             login.setPassword(user.getPassword());
             Token newToken = tokenService.newToken(login);
-            return ResponseEntity.ok().body(newToken);
+            resp.put("token", newToken.getToken());
+            return resp;
         }
     }
 }

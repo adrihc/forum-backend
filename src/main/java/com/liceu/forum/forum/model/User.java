@@ -18,10 +18,10 @@ public class User {
     String role;
     String avatarUrl;
 
-    @OneToMany(mappedBy = "user",cascade = CascadeType.REMOVE)
+    @OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
     Set<Topic> topics;
 
-    @OneToMany(mappedBy = "user",cascade = CascadeType.REMOVE)
+    @OneToMany(mappedBy = "user",cascade = CascadeType.ALL)
     Set<Reply> replies;
     public Long getId() {
         return id;

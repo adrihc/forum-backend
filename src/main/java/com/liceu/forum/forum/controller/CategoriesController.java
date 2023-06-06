@@ -30,16 +30,19 @@ public class CategoriesController {
     UserService userService;
 
     @GetMapping("/categories")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public List<Categories> getCategories(){
         return categoriesService.getAllCategories();
     }
 
     @PostMapping("/categories")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public ResponseEntity<Categories> postCategories(@RequestBody CategoryBody body) throws UnsupportedEncodingException, URISyntaxException {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
+        if (body.getTitle().contains("/")){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         if (tokenService.isAdmin(token)){
             if (categoriesService.tryExistanceCategory(body.getTitle())){
                 Categories category = categoriesService.createCategory(body);
@@ -54,9 +57,12 @@ public class CategoriesController {
     }
 
     @GetMapping("/categories/{slug}")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public ResponseEntity<Categories> getCategory(@PathVariable String slug) throws UnsupportedEncodingException {
         String encodedSlug = URLEncoder.encode(slug, "UTF-8").replaceAll("\\+", "_");
+        if (encodedSlug.contains("/")){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         if (categoriesService.trySlug(encodedSlug)){
             Categories category = categoriesService.findBySlug(encodedSlug);
             return ResponseEntity.ok(category);
@@ -65,16 +71,23 @@ public class CategoriesController {
         }
     }
     @PutMapping("/categories/{slug}")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public ResponseEntity<Categories> updateCategory(@PathVariable String slug,@RequestBody CategoryBody body) throws UnsupportedEncodingException {
         String encodedSlug = URLEncoder.encode(slug, "UTF-8").replaceAll("\\+", "_");
         Categories category = categoriesService.findBySlug(encodedSlug);
-        categoriesService.updateCategory(category,body);
-        return ResponseEntity.ok(category);
+        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+        String token = request.getHeader("Authorization").replace("Bearer ","");
+        System.out.println(token);
+        if (tokenService.isAdmin(token)){
+            categoriesService.updateCategory(category,body);
+            return ResponseEntity.ok(category);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
     @DeleteMapping("/categories/{slug}")
-    @CrossOrigin
+    @CrossOrigin("http://localhost:3000/")
     public ResponseEntity<Void> deleteCategory(@PathVariable String slug) throws UnsupportedEncodingException {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
         String token = request.getHeader("Authorization").replace("Bearer ","");
@@ -87,6 +100,4 @@ public class CategoriesController {
         categoriesService.deleteCategory(encodedSlug);
         return ResponseEntity.ok().build();
     }
-
-
 }

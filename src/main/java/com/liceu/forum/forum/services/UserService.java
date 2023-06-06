@@ -7,6 +7,7 @@ import com.liceu.forum.forum.repos.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 @Service
@@ -31,7 +32,7 @@ public class UserService {
     public void save(User user){
         userRepo.save(user);
     }
-    public void updatePassword(User user, Password password){
+    public void updatePassword(User user, Password password) throws NoSuchAlgorithmException {
         userRepo.updatePassword(user.getEmail(), encrypter.SHA256(password.getNewPassword()));
     }
     public List<String> getPermisions(String role){

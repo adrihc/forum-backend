@@ -2,6 +2,7 @@ package com.liceu.forum.forum.services;
 
 import org.springframework.stereotype.Service;
 
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -12,14 +13,20 @@ public class Encrypter {
 
     public Encrypter() {
         try {
-            digest = MessageDigest.getInstance("SHA-256");
+            digest = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException e) {
-            System.err.println("Algorithm SHA-256 not found: "+e);
+            System.err.println("Algorithm MD5 not found: "+e);
         }
     }
 
-    public String SHA256(String word) {
-        byte[] hash = digest.digest(word.getBytes(StandardCharsets.UTF_8));
-        return new String(hash);
+    public String SHA256(String word) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] digest = md.digest(word.getBytes());
+        BigInteger password = new BigInteger(1,digest);
+        String hashtext = password.toString(16);
+        while (hashtext.length() < 32) {
+            hashtext = "0" + hashtext;
+        }
+        return hashtext;
     }
 }
